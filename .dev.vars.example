@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+# In production these are set with `npx wrangler secret put <NAME>`.
+APP_PASSWORD=choose-a-local-password
+SESSION_SECRET=any-long-random-string

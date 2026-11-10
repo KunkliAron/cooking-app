@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cooking-app",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  // global_fetch_strictly_public is required by the OAuth library to safely look up connecting apps.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    // Serve the React app for any other path; the paths below always hit the Worker.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/authorize", "/oauth/*", "/.well-known/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cooking-app",
+      // Replace with the id printed by `npx wrangler d1 create cooking-app` before deploying.
+      "database_id": "d68c5422-feec-4314-a529-ec32695afe2f",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      // Stores the Claude connector's sign-in grants and tokens (hashed).
+      "binding": "OAUTH_KV",
+      // Replace with the id printed by `npx wrangler kv namespace create OAUTH_KV` before deploying.
+      "id": "1be0a2d0ba7644878fa69ddfad1325d9"
+    }
+  ]
+}
