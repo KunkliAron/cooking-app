@@ -13,9 +13,16 @@ When saving a recipe:
 - Write the steps in your own words, one action per step, and keep the source_url.
 - Give every ingredient a numeric quantity and unit where the recipe has one, and an aisle.
 - For ingredients that can be hard to find, add substitutes with a note on ratio and effect.
+- Always fill in nutrition (calories, protein, carbs and fat for one serving). Use the source's figures
+  when it gives them; otherwise estimate from the ingredients and say in your reply that it is an estimate.
 - Set timer_seconds on steps that involve waiting a fixed time.
 - Add lower-case tags (cuisine, meal type, diet, main ingredient, effort). Call search_recipes first to
-  see the tags already in use and reuse them rather than inventing near-duplicates.`;
+  see the tags already in use and reuse them rather than inventing near-duplicates.
+
+If a saved recipe has no nutrition, offer to add it with update_recipe.
+
+Before adding a recipe to the grocery list, ask which ingredients the user already has and pass them as
+exclude.`;
 
 const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
 const failure = (message: string) => ({ content: [{ type: "text" as const, text: message }], isError: true });
@@ -46,7 +53,7 @@ function buildServer(database: D1Database): McpServer {
     "get_recipe",
     {
       title: "Get a saved recipe",
-      description: "Get one saved recipe in full: ingredients, substitutes, steps, tags and notes.",
+      description: "Get one saved recipe in full: ingredients, substitutes, steps, nutrition per serving, tags and notes.",
       inputSchema: z.object({ id: z.string() }),
       annotations: { readOnlyHint: true },
     },
@@ -102,15 +109,20 @@ function buildServer(database: D1Database): McpServer {
       description:
         "Add a saved recipe's ingredients, loose items, or both to the grocery list. Items with the same name and unit are merged.",
       inputSchema: z.object({
-        recipe_id: z.string().optional().describe("Add every ingredient of this saved recipe"),
+        recipe_id: z.string().optional().describe("Add the ingredients of this saved recipe"),
+        exclude: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe("Names of the recipe's ingredients to leave out, e.g. ones the user already has at home"),
         servings: z.number().positive().optional().describe("Scale the recipe's quantities to this many servings"),
         items: z.array(groceryItemInputSchema).max(100).optional().describe("Individual items to add"),
       }),
     },
-    async ({ recipe_id, servings, items }) => {
+    async ({ recipe_id, servings, exclude, items }) => {
       let added = 0;
       if (recipe_id) {
-        const fromRecipe = await db.addRecipeToGrocery(database, recipe_id, servings);
+        const fromRecipe = await db.addRecipeToGrocery(database, recipe_id, servings, { exclude });
         if (fromRecipe === null) return failure(`No recipe with id ${recipe_id}.`);
         added += fromRecipe;
       }

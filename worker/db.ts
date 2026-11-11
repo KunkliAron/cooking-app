@@ -1,6 +1,7 @@
 import type {
   GroceryItem,
   GroceryItemInput,
+  Nutrition,
   Recipe,
   RecipeInput,
   RecipePatch,
@@ -18,6 +19,7 @@ interface RecipeRow {
   cook_minutes: number | null;
   ingredients: string;
   steps: string;
+  nutrition: string | null;
   notes: string | null;
   created_at: number;
   updated_at: number;
@@ -32,6 +34,13 @@ function normaliseTags(tags: string[]): string[] {
 
 function parseTags(json: string | null): string[] {
   return json ? (JSON.parse(json) as string[]).sort() : [];
+}
+
+/** Stored as JSON; null when no value is known, so an empty object never reaches the page. */
+function nutritionJson(n: Nutrition | null | undefined): string | null {
+  if (!n) return null;
+  const known = Object.fromEntries(Object.entries(n).filter(([, v]) => v != null));
+  return Object.keys(known).length ? JSON.stringify(known) : null;
 }
 
 function likePattern(term: string): string {
@@ -49,6 +58,7 @@ function toRecipe(row: RecipeRow): Recipe {
     cook_minutes: row.cook_minutes,
     ingredients: JSON.parse(row.ingredients),
     steps: JSON.parse(row.steps),
+    nutrition: row.nutrition ? JSON.parse(row.nutrition) : null,
     notes: row.notes,
     tags: parseTags(row.tags),
     created_at: row.created_at,
@@ -79,14 +89,14 @@ export async function listRecipes(
 
   const { results } = await db
     .prepare(
-      `SELECT r.id, r.title, r.description, r.servings, r.prep_minutes, r.cook_minutes, ${TAGS_SUBQUERY}
+      `SELECT r.id, r.title, r.description, r.servings, r.prep_minutes, r.cook_minutes, r.nutrition, ${TAGS_SUBQUERY}
        FROM recipes r ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY r.created_at DESC`,
     )
     .bind(...params)
-    .all<Omit<RecipeSummary, "tags"> & { tags: string | null }>();
+    .all<Omit<RecipeSummary, "tags" | "nutrition"> & { tags: string | null; nutrition: string | null }>();
 
-  return results.map((r) => ({ ...r, tags: parseTags(r.tags) }));
+  return results.map((r) => ({ ...r, nutrition: r.nutrition ? JSON.parse(r.nutrition) : null, tags: parseTags(r.tags) }));
 }
 
 export async function listTags(db: D1Database): Promise<TagCount[]> {
@@ -117,8 +127,8 @@ export async function createRecipe(db: D1Database, input: RecipeInput): Promise<
     db
       .prepare(
         `INSERT INTO recipes (id, title, description, source_url, servings, prep_minutes, cook_minutes,
-                              ingredients, steps, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                              ingredients, steps, nutrition, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -130,6 +140,7 @@ export async function createRecipe(db: D1Database, input: RecipeInput): Promise<
         input.cook_minutes ?? null,
         JSON.stringify(input.ingredients),
         JSON.stringify(input.steps),
+        nutritionJson(input.nutrition),
         input.notes || null,
         now,
         now,
@@ -149,7 +160,7 @@ export async function updateRecipe(db: D1Database, id: string, patch: RecipePatc
     db
       .prepare(
         `UPDATE recipes SET title = ?, description = ?, source_url = ?, servings = ?, prep_minutes = ?,
-                            cook_minutes = ?, ingredients = ?, steps = ?, notes = ?, updated_at = ?
+                            cook_minutes = ?, ingredients = ?, steps = ?, nutrition = ?, notes = ?, updated_at = ?
          WHERE id = ?`,
       )
       .bind(
@@ -161,6 +172,7 @@ export async function updateRecipe(db: D1Database, id: string, patch: RecipePatc
         next.cook_minutes ?? null,
         JSON.stringify(next.ingredients),
         JSON.stringify(next.steps),
+        nutritionJson(next.nutrition),
         next.notes || null,
         Date.now(),
         id,
@@ -233,18 +245,26 @@ export async function addGroceryItems(
   return added;
 }
 
-/** Adds a recipe's ingredients, scaled to `servings` when both it and the recipe's own servings are known. */
+/**
+ * Adds a recipe's ingredients, scaled to `servings` when both it and the recipe's own servings are known.
+ * `only` limits it to those positions in the ingredient list; `exclude` leaves out ingredients by name.
+ */
 export async function addRecipeToGrocery(
   db: D1Database,
   recipeId: string,
   servings?: number | null,
+  pick: { only?: number[] | null; exclude?: string[] | null } = {},
 ): Promise<number | null> {
   const recipe = await getRecipe(db, recipeId);
   if (!recipe) return null;
   const scale = servings && recipe.servings ? servings / recipe.servings : 1;
+  const excluded = new Set((pick.exclude ?? []).map((n) => n.trim().toLowerCase()));
+  const wanted = recipe.ingredients.filter(
+    (i, index) => (!pick.only || pick.only.includes(index)) && !excluded.has(i.name.trim().toLowerCase()),
+  );
   return addGroceryItems(
     db,
-    recipe.ingredients.map((i) => ({
+    wanted.map((i) => ({
       name: i.name,
       quantity: i.quantity != null ? i.quantity * scale : null,
       unit: i.unit,

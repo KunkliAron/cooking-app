@@ -1,6 +1,7 @@
 export type {
   GroceryItem,
   Ingredient,
+  Nutrition,
   Recipe,
   RecipeInput,
   RecipeSummary,

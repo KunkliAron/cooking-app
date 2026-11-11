@@ -107,9 +107,11 @@ api.delete("/recipes/:id", async (c) => {
 });
 
 api.post("/recipes/:id/grocery", async (c) => {
-  const body = await c.req.json<{ servings?: unknown }>().catch(() => null);
+  const body = await c.req.json<{ servings?: unknown; ingredients?: unknown }>().catch(() => null);
   const servings = typeof body?.servings === "number" && body.servings > 0 ? body.servings : null;
-  const added = await db.addRecipeToGrocery(c.env.DB, c.req.param("id"), servings);
+  // Positions in the recipe's ingredient list to add; everything when left out.
+  const only = Array.isArray(body?.ingredients) ? body.ingredients.filter((n): n is number => Number.isInteger(n)) : null;
+  const added = await db.addRecipeToGrocery(c.env.DB, c.req.param("id"), servings, { only });
   return added === null ? notFound(c) : c.json({ added });
 });
 

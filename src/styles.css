@@ -649,3 +649,52 @@ main {
 .login .button {
   margin-top: 6px;
 }
+
+/* ---- Nutrition and the "what to buy" chooser ---- */
+
+.macros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.macros div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.macros dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.macros dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.row4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.picker {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--notice-bg);
+}
+
+.picker h3 {
+  margin: 0;
+}
+
+.picker p {
+  margin: 4px 0 8px;
+}

@@ -28,6 +28,15 @@ export const stepSchema = z.object({
   timer_seconds: optionalInt(86400).describe("Set when the step involves waiting a fixed time, e.g. 600 for 'simmer 10 minutes'"),
 });
 
+const macro = (max: number) => z.number().min(0).max(max).nullable().optional();
+
+export const nutritionSchema = z.object({
+  calories: macro(100000).describe("kcal per serving"),
+  protein_g: macro(10000).describe("Grams of protein per serving"),
+  carbs_g: macro(10000).describe("Grams of carbohydrate per serving"),
+  fat_g: macro(10000).describe("Grams of fat per serving"),
+});
+
 const recipeFields = z.object({
   title: text(200).min(1),
   description: optionalText(1000).describe("One or two sentences about the dish"),
@@ -45,6 +54,10 @@ const recipeFields = z.object({
     .array(text(40).min(1))
     .max(30)
     .describe("Lower-case labels: cuisine, meal type, diet, main ingredient, effort, e.g. ['thai','dinner','vegetarian','quick']"),
+  nutrition: nutritionSchema
+    .nullable()
+    .optional()
+    .describe("Macros for ONE serving. Take them from the source when it gives them, otherwise estimate from the ingredients"),
   notes: optionalText(5000),
 });
 
@@ -67,6 +80,7 @@ export const groceryItemInputSchema = z.object({
 
 export type Substitute = z.infer<typeof substituteSchema>;
 export type Ingredient = z.infer<typeof ingredientSchema>;
+export type Nutrition = z.infer<typeof nutritionSchema>;
 export type Step = z.infer<typeof stepSchema>;
 export type RecipeInput = z.infer<typeof recipeInputSchema>;
 export type RecipePatch = z.infer<typeof recipePatchSchema>;
@@ -85,6 +99,7 @@ export interface RecipeSummary {
   servings: number | null;
   prep_minutes: number | null;
   cook_minutes: number | null;
+  nutrition: Nutrition | null;
   tags: string[];
 }
 

@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { formatMinutes, formatQuantity } from "../../shared/format";
-import { api, errorMessage, type Recipe } from "../api";
+import { api, errorMessage, type Nutrition, type Recipe } from "../api";
+
+const MACROS: { key: keyof Nutrition; label: string; unit: string }[] = [
+  { key: "calories", label: "Calories", unit: "" },
+  { key: "protein_g", label: "Protein", unit: " g" },
+  { key: "carbs_g", label: "Carbs", unit: " g" },
+  { key: "fat_g", label: "Fat", unit: " g" },
+];
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -11,6 +18,8 @@ export default function RecipeDetail() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // While choosing what to buy: one flag per ingredient, in recipe order. Null when the chooser is closed.
+  const [picking, setPicking] = useState<boolean[] | null>(null);
 
   useEffect(() => {
     api<{ recipe: Recipe }>(`/recipes/${id}`)
@@ -26,11 +35,17 @@ export default function RecipeDetail() {
 
   const scale = servings && recipe.servings ? servings / recipe.servings : 1;
 
+  const macros = MACROS.filter((m) => recipe.nutrition?.[m.key] != null);
+  const picked = picking ? picking.filter(Boolean).length : 0;
+
   async function addToGrocery() {
+    if (!picking) return;
     setBusy(true);
     setError("");
     try {
-      const { added } = await api<{ added: number }>(`/recipes/${id}/grocery`, { method: "POST", json: { servings } });
+      const ingredients = picking.flatMap((on, i) => (on ? [i] : []));
+      const { added } = await api<{ added: number }>(`/recipes/${id}/grocery`, { method: "POST", json: { servings, ingredients } });
+      setPicking(null);
       setNotice(`Added ${added} ${added === 1 ? "item" : "items"} to the grocery list.`);
     } catch (err) {
       setError(errorMessage(err));
@@ -75,10 +90,50 @@ export default function RecipeDetail() {
         >
           Start cooking
         </Link>
-        <button className="button" onClick={addToGrocery} disabled={busy || !recipe.ingredients.length}>
+        <button
+          className="button"
+          onClick={() => {
+            setNotice("");
+            setPicking(recipe.ingredients.map(() => true));
+          }}
+          disabled={!!picking || !recipe.ingredients.length}
+        >
           Add to grocery list
         </button>
       </div>
+
+      {picking && (
+        <section className="picker" aria-label="Choose what to buy">
+          <h3>What do you need to buy?</h3>
+          <p className="muted">Untick anything you already have.</p>
+          <ul className="grocerylist">
+            {recipe.ingredients.map((ing, i) => (
+              <li key={i} className={picking[i] ? "groceryitem" : "groceryitem checked"}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={picking[i]}
+                    onChange={() => setPicking(picking.map((on, j) => (j === i ? !on : on)))}
+                  />
+                  <span>
+                    {ing.quantity != null && `${formatQuantity(ing.quantity * scale)} `}
+                    {ing.unit && `${ing.unit} `}
+                    {ing.name}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="actions">
+            <button className="button primary" onClick={addToGrocery} disabled={busy || picked === 0}>
+              {picked === 0 ? "Nothing ticked" : `Add ${picked} ${picked === 1 ? "item" : "items"}`}
+            </button>
+            <button className="button" onClick={() => setPicking(null)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      )}
       {notice && (
         <p className="notice" role="status">
           {notice} <Link to="/grocery">View list</Link>
@@ -88,6 +143,23 @@ export default function RecipeDetail() {
         <p className="error" role="alert">
           {error}
         </p>
+      )}
+
+      {macros.length > 0 && (
+        <section>
+          <h3>Nutrition per serving</h3>
+          <dl className="macros">
+            {macros.map((m) => (
+              <div key={m.key}>
+                <dt>{m.label}</dt>
+                <dd>
+                  {Math.round(recipe.nutrition![m.key]!)}
+                  {m.unit}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
 
       <section>

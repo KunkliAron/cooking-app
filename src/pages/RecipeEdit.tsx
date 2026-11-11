@@ -25,6 +25,10 @@ interface FormState {
   cook_minutes: string;
   tags: string;
   notes: string;
+  calories: string;
+  protein_g: string;
+  carbs_g: string;
+  fat_g: string;
   ingredients: IngredientRow[];
   steps: StepRow[];
 }
@@ -41,6 +45,10 @@ const emptyForm = (): FormState => ({
   cook_minutes: "",
   tags: "",
   notes: "",
+  calories: "",
+  protein_g: "",
+  carbs_g: "",
+  fat_g: "",
   ingredients: [emptyIngredient()],
   steps: [emptyStep()],
 });
@@ -66,6 +74,11 @@ const num = (s: string) => {
   const n = Number(s.replace(",", "."));
   return s.trim() && Number.isFinite(n) && n > 0 ? n : null;
 };
+/** Like num, but zero is a real value (a dish can have 0 g of fat). */
+const amount = (s: string) => {
+  const n = Number(s.replace(",", "."));
+  return s.trim() && Number.isFinite(n) && n >= 0 ? n : null;
+};
 const int = (s: string) => {
   const n = num(s);
   return n == null ? null : Math.round(n);
@@ -81,6 +94,10 @@ function toForm(r: Recipe): FormState {
     cook_minutes: str(r.cook_minutes),
     tags: r.tags.join(", "),
     notes: r.notes ?? "",
+    calories: str(r.nutrition?.calories),
+    protein_g: str(r.nutrition?.protein_g),
+    carbs_g: str(r.nutrition?.carbs_g),
+    fat_g: str(r.nutrition?.fat_g),
     ingredients: r.ingredients.map((i) => ({
       quantity: str(i.quantity),
       unit: i.unit ?? "",
@@ -102,6 +119,12 @@ function toInput(f: FormState): RecipeInput {
     prep_minutes: int(f.prep_minutes),
     cook_minutes: int(f.cook_minutes),
     notes: f.notes || null,
+    nutrition: {
+      calories: amount(f.calories),
+      protein_g: amount(f.protein_g),
+      carbs_g: amount(f.carbs_g),
+      fat_g: amount(f.fat_g),
+    },
     tags: f.tags
       .split(",")
       .map((t) => t.trim())
@@ -262,6 +285,26 @@ export default function RecipeEdit() {
       <button type="button" className="button" onClick={() => set("steps", [...form.steps, emptyStep()])}>
         Add step
       </button>
+
+      <h3>Nutrition per serving</h3>
+      <div className="row4">
+        <label>
+          Calories
+          <input inputMode="decimal" value={form.calories} onChange={(e) => set("calories", e.target.value)} />
+        </label>
+        <label>
+          Protein (g)
+          <input inputMode="decimal" value={form.protein_g} onChange={(e) => set("protein_g", e.target.value)} />
+        </label>
+        <label>
+          Carbs (g)
+          <input inputMode="decimal" value={form.carbs_g} onChange={(e) => set("carbs_g", e.target.value)} />
+        </label>
+        <label>
+          Fat (g)
+          <input inputMode="decimal" value={form.fat_g} onChange={(e) => set("fat_g", e.target.value)} />
+        </label>
+      </div>
 
       <h3>More</h3>
       <label>

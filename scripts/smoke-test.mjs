@@ -61,6 +61,7 @@ const recipe = {
   ],
   steps: [{ text: "Fry the paste." }, { text: "Simmer.", timer_seconds: 600 }],
   tags: ["Thai", "smoketest"],
+  nutrition: { calories: 520, protein_g: 18, carbs_g: 30, fat_g: 0 },
 };
 
 // ---- Web API -------------------------------------------------------------
@@ -95,12 +96,25 @@ check("tags listed", (await call("/api/tags")).body.tags?.some((t) => t.tag === 
 
 const patched = await call(`/api/recipes/${id}`, { method: "PUT", json: { tags: ["smoketest", "dinner"] } });
 check("partial update keeps other fields", patched.body.recipe?.ingredients?.length === 2 && patched.body.recipe.tags.includes("dinner"));
+check(
+  "nutrition is stored, including a zero",
+  patched.body.recipe?.nutrition?.calories === 520 && patched.body.recipe.nutrition.fat_g === 0,
+  JSON.stringify(patched.body.recipe?.nutrition),
+);
+
+// Only the ticked ingredients are added: position 1 is the galangal.
+const pickedOnly = await call(`/api/recipes/${id}/grocery`, { method: "POST", json: { ingredients: [1] } });
+check("grocery adds only the chosen ingredients", pickedOnly.body.added === 1, JSON.stringify(pickedOnly.body));
 
 await call(`/api/recipes/${id}/grocery`, { method: "POST", json: { servings: 4 } });
 await call(`/api/recipes/${id}/grocery`, { method: "POST", json: {} });
 let grocery = (await call("/api/grocery")).body.items.filter((i) => i.name.startsWith("smoketest"));
 const milk = grocery.find((i) => i.name === "smoketest coconut milk");
-check("grocery scales and merges (800 + 400 ml)", grocery.length === 2 && milk?.quantity === 1200, JSON.stringify(grocery));
+check(
+  "grocery scales and merges (800 + 400 ml)",
+  grocery.length === 2 && milk?.quantity === 1200 && grocery.find((i) => i.name === "smoketest galangal")?.quantity === 4,
+  JSON.stringify(grocery),
+);
 check("tick item", (await call(`/api/grocery/${milk.id}`, { method: "PATCH", json: { checked: true } })).status === 200);
 
 // ---- Claude connector: OAuth, then MCP ------------------------------------
@@ -201,8 +215,14 @@ check("MCP update_recipe", !updated.isError && JSON.parse(updated.data).notes ==
 const bad = await tool("save_recipe", { title: "" });
 check("MCP rejects invalid input", bad.isError);
 
+const got = await tool("get_recipe", { id: savedId });
+check("MCP get_recipe returns nutrition", !got.isError && JSON.parse(got.data).nutrition?.protein_g === 18, got.data?.slice(0, 200));
+
+const excluded = await tool("add_to_grocery_list", { recipe_id: savedId, exclude: ["Smoketest Coconut Milk", "smoketest galangal"] });
+check("MCP add_to_grocery_list leaves out excluded ingredients", !excluded.isError && JSON.parse(excluded.data).added === 0, excluded.data);
+
 const list = await tool("get_grocery_list");
-check("MCP get_grocery_list text omits ticked items", !list.isError && JSON.parse(list.data).text.includes("3 piece smoketest galangal") && !JSON.parse(list.data).text.includes("coconut"), list.data);
+check("MCP get_grocery_list text omits ticked items", !list.isError && JSON.parse(list.data).text.includes("4 piece smoketest galangal") && !JSON.parse(list.data).text.includes("coconut"), list.data);
 
 check("MCP delete_recipe", !(await tool("delete_recipe", { id: savedId })).isError);
 

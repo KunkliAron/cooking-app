@@ -3,9 +3,10 @@
 A personal recipe app. You find recipes by talking to Claude in the Claude app; Claude saves the
 ones you pick. The web app (installable on a phone) is where you browse, cook and shop.
 
-- **Recipes** with tags, search, per-ingredient substitutes and serving scaling
+- **Recipes** with tags, search, per-ingredient substitutes and serving scaling and nutrition per serving
+  (calories, protein, carbs, fat), filled in by Claude when it saves a recipe
 - **Start cooking**: one step at a time, large text, timers, screen stays on
-- **Grocery list**: add a recipe's ingredients, tick items off, copy or share as plain text for
+- **Grocery list**: add a recipe's ingredients (untick what you already have), tick items off, copy or share as plain text for
   Google Keep or Apple Notes
 - **Claude connector**: lets your Claude app search, save and edit recipes and the grocery list
 
