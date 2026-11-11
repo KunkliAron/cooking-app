@@ -389,6 +389,16 @@ input[type="checkbox"] {
   display: none;
 }
 
+/* With a mouse there is no easy way to scroll sideways, so the filters wrap onto more lines instead. */
+@media (hover: hover) and (pointer: fine) {
+  .chips {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin: 14px 0 0;
+    padding: 2px 0 6px;
+  }
+}
+
 .chip {
   flex: none;
   min-height: 38px;
