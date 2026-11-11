@@ -22,7 +22,11 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 
   return (
     <form className="login" onSubmit={submit}>
+      <div className="mark" aria-hidden="true">
+        🍳
+      </div>
       <h1>My Recipes</h1>
+      <p className="muted">Your own cookbook, filled by Claude.</p>
       <label htmlFor="password">Password</label>
       <input
         id="password"

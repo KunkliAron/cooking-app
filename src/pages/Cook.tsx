@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { CloseIcon } from "../ui/icons";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { formatAmount } from "../../shared/format";
 import { api, errorMessage, type Ingredient, type Recipe } from "../api";
@@ -159,13 +160,15 @@ export default function Cook() {
     >
       <header className="cookbar">
         <Link to={`/recipes/${id}`} className="link">
-          ✕ Exit
+          <CloseIcon size={18} /> Exit
         </Link>
-        <span aria-live="polite">
-          Step {current + 1} of {steps.length}
-        </span>
+        <span>{recipe.title}</span>
       </header>
-      <progress value={current + 1} max={steps.length} aria-hidden="true" />
+      <div className="segments" aria-hidden="true">
+        {steps.map((_, i) => (
+          <span key={i} className={i <= current ? "done" : ""} />
+        ))}
+      </div>
 
       {finished.map((s) => (
         <button key={s} className="alarm" role="alert" onClick={() => setFinished((prev) => prev.filter((x) => x !== s))}>
@@ -179,13 +182,24 @@ export default function Cook() {
       ))}
 
       <div className="cookbody">
-        <p className="steptext">{step.text}</p>
+        <div>
+          <p className="stepno" aria-live="polite">
+            Step {current + 1} of {steps.length}
+          </p>
+          <p className="steptext">{step.text}</p>
+        </div>
 
         {timer && (
           <div className="timer">
-            <span className="time" role="timer">
-              {clock(secondsLeft(timer, now))}
-            </span>
+            <div
+              className="ring"
+              style={{ "--p": Math.max(0, Math.min(1, secondsLeft(timer, now) / step.timer_seconds!)) } as CSSProperties}
+            >
+              <span className="time" role="timer">
+                {clock(secondsLeft(timer, now))}
+              </span>
+            </div>
+            <div className="controls">
             {timer.endsAt ? (
               <button className="button" onClick={() => setTimer({ endsAt: null, remaining: secondsLeft(timer, Date.now()) })}>
                 Pause
@@ -203,6 +217,7 @@ export default function Cook() {
                 Reset
               </button>
             )}
+            </div>
           </div>
         )}
 

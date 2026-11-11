@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AISLES } from "../../shared/constants";
 import { aisleRank, formatAmount, groceryToText } from "../../shared/format";
 import { api, errorMessage, type GroceryItem } from "../api";
+import { AISLE_SYMBOLS } from "../ui/cover";
 
 async function copyText(text: string) {
   try {
@@ -122,21 +123,31 @@ export default function Grocery() {
 
       {items.length === 0 ? (
         <div className="empty">
-          <h2>Grocery list is empty</h2>
-          <p>Open a recipe and choose "Add to grocery list", or add items above.</p>
+          <div className="big">🧺</div>
+          <h2>Nothing to buy</h2>
+          <p>Open a recipe and choose "Add to list", or add items above.</p>
         </div>
       ) : (
         <>
-          <div className="actions">
-            <button className="button primary" onClick={copy} disabled={!todo.length}>
-              Copy list
-            </button>
-            {"share" in navigator && (
-              <button className="button" onClick={() => navigator.share({ title: "Grocery list", text }).catch(() => {})} disabled={!todo.length}>
-                Share
+          <section className="progresscard">
+            <h2>{todo.length === 0 ? "All done 🎉" : `${todo.length} to buy`}</h2>
+            <p>
+              {done.length} of {items.length} in the basket
+            </p>
+            <div className="track" aria-hidden="true">
+              <span style={{ width: `${(done.length / items.length) * 100}%` }} />
+            </div>
+            <div className="actions">
+              <button className="button" onClick={copy} disabled={!todo.length}>
+                Copy list
               </button>
-            )}
-          </div>
+              {"share" in navigator && (
+                <button className="button" onClick={() => navigator.share({ title: "Grocery list", text }).catch(() => {})} disabled={!todo.length}>
+                  Share
+                </button>
+              )}
+            </div>
+          </section>
           {notice && (
             <p className="notice" role="status">
               {notice}
@@ -145,14 +156,18 @@ export default function Grocery() {
 
           {groups.map((g) => (
             <section key={g.aisle}>
-              <h3 className="aisle">{g.aisle}</h3>
+              <h3 className="aisle">
+                <span aria-hidden="true">{AISLE_SYMBOLS[g.aisle]}</span> {g.aisle}
+              </h3>
               <ul className="grocerylist">{g.items.map(row)}</ul>
             </section>
           ))}
 
           {done.length > 0 && (
             <section>
-              <h3 className="aisle">In the basket</h3>
+              <h3 className="aisle">
+                <span aria-hidden="true">✓</span> In the basket
+              </h3>
               <ul className="grocerylist">{done.map(row)}</ul>
             </section>
           )}

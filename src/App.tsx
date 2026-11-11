@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { SIGNED_OUT_EVENT, api } from "./api";
+import { Link, NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { SIGNED_OUT_EVENT, api, type GroceryItem } from "./api";
 import Cook from "./pages/Cook";
 import Grocery from "./pages/Grocery";
 import Login from "./pages/Login";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
 import Recipes from "./pages/Recipes";
+import { BasketIcon, BookIcon, PlusIcon, SignOutIcon } from "./ui/icons";
 
 export default function App() {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -40,31 +41,69 @@ export default function App() {
         <Route path="/recipes/:id" element={<RecipeDetail />} />
         <Route path="/recipes/:id/edit" element={<RecipeEdit />} />
         <Route path="/grocery" element={<Grocery />} />
-        <Route path="*" element={<p className="empty">Page not found.</p>} />
+        <Route
+          path="*"
+          element={
+            <div className="empty">
+              <div className="big">🧭</div>
+              <h2>Page not found</h2>
+              <Link to="/">Back to your recipes</Link>
+            </div>
+          }
+        />
       </Route>
     </Routes>
   );
 }
 
 function Shell({ onSignOut }: { onSignOut: () => void }) {
-  const onGrocery = useLocation().pathname.startsWith("/grocery");
+  const { pathname } = useLocation();
+  const section = pathname.startsWith("/grocery") ? "grocery" : pathname === "/new" ? "new" : "recipes";
+
+  // A recipe or the editor fills the screen with its own action bar, so the tab bar steps aside.
+  const focused = section === "new" || pathname.startsWith("/recipes/");
+
+  // How many things are still to buy, shown on the grocery tab. Re-read whenever the page changes.
+  const [toBuy, setToBuy] = useState(0);
+  useEffect(() => {
+    api<{ items: GroceryItem[] }>("/grocery")
+      .then((r) => setToBuy(r.items.filter((i) => !i.checked).length))
+      .catch(() => {});
+  }, [pathname]);
+
   return (
-    <div className="shell">
+    <div className={focused ? "shell focused" : "shell"}>
       <header className="topbar">
-        <h1>My Recipes</h1>
-        <button className="link" onClick={onSignOut}>
-          Sign out
+        <Link to="/" className="brand">
+          <span aria-hidden="true">🍳</span> My Recipes
+        </Link>
+        <button className="iconbtn" onClick={onSignOut} aria-label="Sign out" title="Sign out">
+          <SignOutIcon />
         </button>
       </header>
       <main>
         <Outlet />
       </main>
-      <nav className="tabs">
-        <NavLink to="/" className={onGrocery ? "" : "active"}>
+      {!focused && (
+      <nav className="tabs" aria-label="Main">
+        <NavLink to="/" className={section === "recipes" ? "active" : ""}>
+          <BookIcon />
           Recipes
         </NavLink>
-        <NavLink to="/grocery">Grocery list</NavLink>
+        <NavLink to="/new" className="add" aria-label="Add a recipe by hand" title="Add a recipe by hand">
+          <PlusIcon size={26} />
+        </NavLink>
+        <NavLink to="/grocery" className={section === "grocery" ? "active" : ""}>
+          <BasketIcon />
+          Groceries
+          {toBuy > 0 && section !== "grocery" && (
+            <span className="badge" aria-label={`${toBuy} to buy`}>
+              {toBuy}
+            </span>
+          )}
+        </NavLink>
       </nav>
+      )}
     </div>
   );
 }
